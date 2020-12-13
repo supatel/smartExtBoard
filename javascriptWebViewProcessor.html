@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="author" content="puravidaapps.com">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Label</title>
+
+  <script src="jquery-1.8.0.min.js"></script>
+  <script>
+  // urldecode function, which also handles the case of spaces being encoded as +
+  // http://stackoverflow.com/a/4458580/1545993
+  function urldecode(str) {
+    return decodeURIComponent((str+'').replace(/\+/g, '%20'));
+  }
+  </script>
+</head>
+
+<body>
+  <script>
+    // get the text to display from the webviewstring, urldecoded
+    var strLabel = urldecode(window.AppInventor.getWebViewString());
+
+
+    // append the text to the body of the html document
+    $("<div>" + strLabel + "</div>").appendTo("body");
+  </script>
+</body>
+</html>
