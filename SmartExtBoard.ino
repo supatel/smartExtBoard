@@ -1,4 +1,5 @@
 
+
 /*
  * Created by Shreyas Patel
  * 
@@ -11,20 +12,63 @@
  * This code is for personal use of watering household
  * plants
  *
-*/
+ * IMPORTANT NOTE:
+ * To run this script, your need to
+ *  1) Enter your WiFi SSID and PSK below this comment
+ *  2) Make sure to have certificate data available. You will find a
+ *     shell script and instructions to do so in the library folder
+ *     under extras/
+ *
+ * This script will install an HTTPS Server on your ESP32 with the following
+ * functionalities:
+ *  - Show simple page on web server root
+ *  - 404 for everything else
+ * The server will be run in a separate task, so that you can do your own stuff
+ * in the loop() function.
+ * Everything else is just like the Static-Page example
+ */
 
 
+/** Check if we have multiple cores */
+#if CONFIG_FREERTOS_UNICORE
+#define ARDUINO_RUNNING_CORE 0
+#else
+#define ARDUINO_RUNNING_CORE 1
+#endif
+
+// Include certificate data (see note above)
+#include "cert.h"
+#include "private_key.h"
+
+// We will use wifi
 #include <WiFi.h>
-#include <WiFiClient.h>
-#include <WebServer.h>
+
+// Includes for the server
+#include <HTTPSServer.hpp>
+#include <SSLCert.hpp>
+#include <HTTPRequest.hpp>
+#include <HTTPResponse.hpp>
+#include <ESPWebServerSecure.hpp>
 #include <ESPmDNS.h>
 #include <Update.h>
-#include <FirebaseESP32.h>
 
-#define APMODE 0
+// The HTTPS Server comes in a separate namespace. For easier use, include it here.
+using namespace httpsserver;
+
+// Create an SSL certificate object from the files included above
+SSLCert cert = SSLCert(
+  example_crt_DER, example_crt_DER_len,
+  example_key_DER, example_key_DER_len
+);
+
+// Create an SSL-enabled server that uses the certificate
+//HTTPSServer secureServer = HTTPSServer(&cert);
+ESPWebServerSecure server(443);
+
+#define APMODE 1
 //1. Change the following info
 #if APMODE
-#define WIFI_SSID "SmartExtensionBoard"
+#define WIFI_SSID "SmartExtensionBoard1"
 #define WIFI_PASSWORD "12345678"
 #else
 #define WIFI_SSID "JioFi3_514C3A"
@@ -52,12 +96,19 @@ unsigned char relay_cmd3 = 0;
 //char timestampString[34] = "October 18 2020 17:45:18, Sunday";
 void(* resetFunc) (void) = 0;//declare reset function at address 0
 
+//void configModeCallback (WiFiManager *myWiFiManager) {
+//  Serial.println("Entered config mode");
+//  Serial.println(WiFi.softAPIP());
+//  //if you used auto generated SSID, print it
+//  Serial.println(myWiFiManager->getConfigPortalSSID());
+//}
+
 //variabls for blinking an LED with Millis
 const int led = 2; // ESP32 Pin to which onboard LED is connected
 unsigned long previousMillis = 0;  // will store last time LED was updated
 const long interval = 1000;  // interval at which to blink (milliseconds)
 int ledState = LOW;  // ledState used to set the LED
-WebServer server(80);
+//WebServer server(HTTP_PORT);
 
 /* Style */
 String style =
@@ -141,6 +192,7 @@ void setup()
   digitalWrite(relay2, HIGH);
     pinMode(relay3, OUTPUT);
   digitalWrite(relay3, HIGH);
+ 
 #if APMODE
   // create WiFi network
   Serial.print("Setting AP (Access Point)…");
@@ -162,6 +214,26 @@ void setup()
       resetFunc(); //call reset 
   }
   }
+//    //WiFiManager
+//  //Local intialization. Once its business is done, there is no need to keep it around
+//  WiFiManager wifiManager;
+//  //reset settings - for testing
+//  //wifiManager.resetSettings();
+// 
+//  //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
+//  wifiManager.setAPCallback(configModeCallback);
+//  
+//  //fetches ssid and pass and tries to connect
+//  //if it does not connect it starts an access point with the specified name
+//  //here  "AutoConnectAP"
+//  //and goes into a blocking loop awaiting configuration
+//  if(!wifiManager.autoConnect("esp8266 mischiantis test")) {
+//    Serial.println("failed to connect and hit timeout");
+//    //reset and try again, or maybe put it to deep sleep
+////    ESP.reset();
+//    resetFunc(); //call reset 
+//    delay(1000);
+//  } 
   Serial.println();
   Serial.print("Connected with IP: ");
   Serial.println(WiFi.localIP());
@@ -183,7 +255,8 @@ void setup()
 //  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 //  printLocalTime();
   
-  
+  server.setServerKeyAndCert(example_key_DER, example_key_DER_len, 
+                            example_crt_DER, example_crt_DER_len  );
   /*return index page which is stored in serverIndex */
   server.on("/", HTTP_GET, []() {
     server.sendHeader("Connection", "close");
